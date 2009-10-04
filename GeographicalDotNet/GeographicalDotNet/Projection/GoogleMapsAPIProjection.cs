@@ -9,39 +9,36 @@ namespace Projection
     public class GoogleMapsAPIProjection : IProjection
     {
         private readonly double PixelTileSize = 256d;
-        private readonly double DegreesToRadiansFactor = Math.PI / 180d;
-        private readonly double RadiansToDegreesFactor = 180d / Math.PI;
-        private PointF Fx;
-        private double Hx;
-        private double Ix;
+        private readonly double DegreesToRadiansRatio = 180d / Math.PI;
+        private readonly double RadiansToDegreesRatio = Math.PI / 180d;
+        private readonly PointF PixelGlobeCenter;
+        private readonly double XPixelsToDegreesRatio;
+        private readonly double YPixelsToRadiansRatio;
 
         public GoogleMapsAPIProjection(double zoomLevel)
         {
-            var c = this.PixelTileSize * Math.Pow(2d, zoomLevel);
-            var e = Convert.ToSingle(c / 2d);
-            this.Hx = c / 360d;
-            this.Ix = c / (2d * Math.PI);
-            this.Fx = new PointF(e, e);
+            var pixelGlobeSize = this.PixelTileSize * Math.Pow(2d, zoomLevel);
+            this.XPixelsToDegreesRatio = pixelGlobeSize / 360d;
+            this.YPixelsToRadiansRatio = pixelGlobeSize / (2d * Math.PI);
+            var halfPixelGlobeSize = Convert.ToSingle(pixelGlobeSize / 2d);
+            this.PixelGlobeCenter = new PointF(halfPixelGlobeSize, halfPixelGlobeSize);
         }
 
         #region IProjection Members
 
         public PointF FromCoordinatesToPixel(PointF coordinates)
         {
-            var d = this.Fx;
-            var e = Math.Round(d.X + (coordinates.X * this.Hx));
-            var f = Math.Min(Math.Max(Math.Sin(coordinates.Y * DegreesToRadiansFactor), -0.9999d), 0.9999d);
-            var g = Math.Round(d.Y + .5d * Math.Log((1d + f) / (1d - f)) * -this.Ix);
-            return new PointF(Convert.ToSingle(e), Convert.ToSingle(g));
+            var x = Math.Round(this.PixelGlobeCenter.X + (coordinates.X * this.XPixelsToDegreesRatio));
+            var f = Math.Min(Math.Max(Math.Sin(coordinates.Y * RadiansToDegreesRatio), -0.9999d), 0.9999d);
+            var y = Math.Round(this.PixelGlobeCenter.Y + .5d * Math.Log((1d + f) / (1d - f)) * -this.YPixelsToRadiansRatio);
+            return new PointF(Convert.ToSingle(x), Convert.ToSingle(y));
         }
 
         public PointF FromPixelToCoordinates(PointF pixel)
         {
-            var e = this.Fx;
-            var f = (pixel.X - e.X) / this.Hx;
-            var g = (pixel.Y - e.Y) / -this.Ix;
-            var h = (2 * Math.Atan(Math.Exp(g)) - Math.PI / 2) * RadiansToDegreesFactor;
-            return new PointF(Convert.ToSingle(h), Convert.ToSingle(f));
+            var longitude = (pixel.X - this.PixelGlobeCenter.X) / this.XPixelsToDegreesRatio;
+            var latitude = (2 * Math.Atan(Math.Exp((pixel.Y - this.PixelGlobeCenter.Y) / -this.YPixelsToRadiansRatio)) - Math.PI / 2) * DegreesToRadiansRatio;
+            return new PointF(Convert.ToSingle(latitude), Convert.ToSingle(longitude));
         }
 
         #endregion
